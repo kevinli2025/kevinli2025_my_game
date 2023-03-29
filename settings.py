@@ -1,3 +1,5 @@
+# File created by: Kevin Li
+
 # screen dimensions
 WIDTH = 800
 HEIGHT = 600
@@ -8,12 +10,14 @@ RUNNING = True
 
 # player attributes
 PLAYER_ACC  = 2
+MOB_ACC = 2
+
 PLAYER_FRICTION = -0.12
+MOB_FRICTION = -0.12
+PLAYER_JUMP = 20
 
 # colors
 BLACK = (0,0,0)
+WHITE = (255,255,255)
 BLUE = (50, 50, 255)
 RED = (255, 50, 50)
-
-# mob attributes
-MOB_ACC = 2
