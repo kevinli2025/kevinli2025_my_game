@@ -20,7 +20,7 @@ BLUE = (0, 0, 255)
 # Game settings
 FPS = 60
 BULLET_SPEED = 8
-MAX_BULLETS = 3
+MAX_BULLETS = 5
 MAX_BOUNCES = 5
 GRAVITY = 0.5
 
@@ -34,7 +34,8 @@ class Bullet(pygame.sprite.Sprite):
         super().__init__(*groups)
         self.pos = pygame.math.Vector2(pos)
         self.angle = math.radians(angle)
-        self.vel = pygame.math.Vector2(-BULLET_SPEED * math.sin(self.angle), -BULLET_SPEED * math.cos(self.angle))
+        #self.vel = pygame.math.Vector2(-BULLET_SPEED * math.sin(self.angle), -BULLET_SPEED * math.cos(self.angle))
+        self.vel = pygame.math.Vector2(BULLET_SPEED * math.cos(self.angle), -BULLET_SPEED * math.sin(self.angle))
         self.bounces = 0
         self.image = pygame.Surface((5, 5), pygame.SRCALPHA)
         self.image.fill(RED)
@@ -98,8 +99,10 @@ class Gun:
         self.original_image = gun_img
 
     def update(self, mouse_pos):
-        dx, dy = mouse_pos[0] - self.pos[0], mouse_pos[1] - self.pos[1]
-        self.angle = math.degrees(math.atan2(dy, dx))
+        dx, dy = mouse_pos[0] - self.pos[0], self.pos[1] - mouse_pos[1]
+        r = math.sqrt(dx*dx + dy*dy)
+        self.angle = math.acos(dx/r) / math.pi * 180
+        #self.angle = math.degrees(math.acos().atan2(dy, dx))
         self.image = pygame.transform.rotate(self.original_image, self.angle)
         self.rect = self.image.get_rect(center=self.pos)
 
@@ -107,7 +110,7 @@ class Gun:
         surface.blit(self.image, self.rect)
 
 def create_level():
-    global platforms
+    global platforms, zombies
     platforms = [Platform((200, 400)), Platform((400, 300)), Platform((600, 200))]
     zombies = pygame.sprite.Group(
         Zombie((250, 390)), Zombie((450, 290)), Zombie((650, 190))
@@ -135,19 +138,22 @@ def button(surface, text, pos, size, color, action=None):
     draw_text(surface, text, (pos[0] + 5, pos[1] + 5))
 
 def restart_game():
-    global bullets, killed_zombies, game_state
+    global bullets, killed_zombies, game_state, bullets_group
+    for bullet in bullets_group:
+        bullet.kill()
     bullets = MAX_BULLETS
     killed_zombies = 0
     game_state = "play"
     platforms, zombies = create_level()
 
 def main():
-    global bullets, killed_zombies, game_state, platforms, zombies
+    global bullets, killed_zombies, game_state, platforms, zombies, bullets_group
     clock = pygame.time.Clock()
 
     gun = Gun((WIDTH // 2, HEIGHT - 30))
     bullets_group = pygame.sprite.Group()
     platforms, zombies = create_level()
+    init_zombie_count = len(zombies)
     killed_zombies = 0
     bullets = MAX_BULLETS
     game_state = "play"
@@ -163,8 +169,11 @@ def main():
             if event.type == MOUSEBUTTONDOWN:
                 if game_state == "play" and bullets > 0:
                     bullet = Bullet(gun.rect.center, gun.angle, bullets_group)
-                    bullets -= 1
-
+                    if bullets > 0:
+                        bullets -= 1
+                    else: 
+                        running = False
+        
         if game_state == "play":
             gun.update(pygame.mouse.get_pos())
             bullets_group.update()
@@ -177,11 +186,12 @@ def main():
                 screen.blit(zombie.image, zombie.rect)
 
             for bullet in bullets_group:
-                if pygame.sprite.spritecollide(bullet, zombies, True):
-                    bullet.kill()
+                hit_zombies = pygame.sprite.spritecollide(bullet, zombies, False)
+                if hit_zombies:
+                    hit_zombies[0].kill()
                     killed_zombies += 1
 
-            if killed_zombies == len(zombies):
+            if killed_zombies == init_zombie_count:
                 game_state = "win"
             elif bullets == 0 and len(bullets_group) == 0:
                 game_state = "lose"
