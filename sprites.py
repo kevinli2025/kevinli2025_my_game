@@ -1,125 +1,92 @@
-import pygame as pg
-from pygame.sprite import Sprite
 from settings import *
-from random import randint
+import pygame
+import math
 
+gun_img = pygame.image.load("images/gun.png")
+zombie_img = pygame.image.load("images/zombie.png")
+platform_img = pygame.image.load("images/platform.png")
 
-vec = pg.math.Vector2
+class Bullet(pygame.sprite.Sprite):
+    def __init__(self, pos, angle, screen, platforms, *groups):
+        super().__init__(*groups)
+        
+        self.screen = screen
+        self.platforms = platforms
+        self.angle = math.radians(angle)
+        self.vel = pygame.math.Vector2(BULLET_SPEED * math.cos(self.angle), -BULLET_SPEED * math.sin(self.angle))
+        x = pos[0] + self.vel.x * 10
+        y = pos[1] + self.vel.y * 10
+        self.pos = pygame.math.Vector2((x,y))
+        self.bounces = 0
+        self.image = pygame.Surface((5, 5), pygame.SRCALPHA)
+        self.image.fill(RED)
+        self.rect = self.image.get_rect(center=(x,y))
 
-# player class
-
-class Player(Sprite):
-    def __init__(self, game):
-        Sprite.__init__(self)
-        # these are the properties
-        self.game = game
-        self.image = pg.Surface((50,50))
-        self.image.fill(BLACK)
-        self.rect = self.image.get_rect()
-        self.rect.center = (WIDTH/2, HEIGHT/2)
-        self.pos = vec(WIDTH/2, HEIGHT/2)
-        self.vel = vec(0,0)
-        self.acc = vec(0,0)
-        self.cofric = 0.1
-        self.canjump = False
-    def input(self):
-        keystate = pg.key.get_pressed()
-        # if keystate[pg.K_w]:
-        #     self.acc.y = -PLAYER_ACC
-        if keystate[pg.K_a]:
-            self.acc.x = -PLAYER_ACC
-        # if keystate[pg.K_s]:
-        #     self.acc.y = PLAYER_ACC
-        if keystate[pg.K_d]:
-            self.acc.x = PLAYER_ACC
-        # if keystate[pg.K_p]:
-        #     if PAUSED == False:
-        #         PAUSED = True
-        #         print(PAUSED)
-        #     else:
-        #         PAUSED = False
-        #         print(PAUSED)
-    # ...
-    def jump(self):
-        self.rect.x += 1
-        hits = pg.sprite.spritecollide(self, self.game.platforms, False)
-        self.rect.x -= 1
-        # if hits:
-        self.vel.y = -PLAYER_JUMP
-    
-    def inbounds(self):
-        if self.rect.x > WIDTH - 50:
-            self.pos.x = WIDTH - 25
-            self.vel.x = 0
-            print("i am off the right side of the screen...")
-        if self.rect.x < 0:
-            self.pos.x = 25
-            self.vel.x = 0
-            print("i am off the left side of the screen...")
-        if self.rect.y > HEIGHT:
-            print("i am off the bottom of the screen")
-        if self.rect.y < 0:
-            print("i am off the top of the screen...")
-    def mob_collide(self):
-            hits = pg.sprite.spritecollide(self, self.game.enemies, True)
-            if hits:
-                print("you collided with an enemy...")
-                self.game.score += 1
-                print(SCORE)
     def update(self):
-        self.acc = vec(0, PLAYER_GRAV)
-        self.acc.x = self.vel.x * PLAYER_FRICTION
-        self.input()
-        self.vel += self.acc
-        self.pos += self.vel + 0.5 * self.acc
-        self.rect.midbottom = self.pos
-
-class Mob(Sprite):
-    def __init__(self,width,height, color):
-        Sprite.__init__(self)
-        self.width = width
-        self.height = height
-        self.image = pg.Surface((self.width,self.height))
-        self.color = color
-        self.image.fill(self.color)
-        self.rect = self.image.get_rect()
-        self.rect.center = (WIDTH/2, HEIGHT/2)
-        self.pos = vec(WIDTH/2, HEIGHT/2)
-        self.vel = vec(randint(1,5),randint(1,5))
-        self.acc = vec(1,1)
-        self.cofric = 0.01
-    # ...
-    def inbounds(self):
-        if self.rect.x > WIDTH:
-            self.vel.x *= -1
-            # self.acc = self.vel * -self.cofric
-        if self.rect.x < 0:
-            self.vel.x *= -1
-            # self.acc = self.vel * -self.cofric
-        if self.rect.y < 0:
-            self.vel.y *= -1
-            # self.acc = self.vel * -self.cofric
-        if self.rect.y > HEIGHT:
-            self.vel.y *= -1
-            # self.acc = self.vel * -self.cofric
-    def update(self):
-        self.inbounds()
-        # self.pos.x += self.vel.x
-        # self.pos.y += self.vel.y
         self.pos += self.vel
-        self.rect.center = self.pos
+        self.rect.topleft = self.pos
+        #if bullet bounces more than maximum, it disappears
+        if self.bounces >= MAX_BOUNCES:
+            self.kill()
+        #Check if the bullet is outside the screen boundaries
+        if not self.rect.colliderect(self.screen.get_rect()):
+            self.bounces += 1
+            if self.rect.left < 0:
+                self.pos.x = 0
+                self.vel.x *= -1
+            if self.rect.right > WIDTH:
+                self.pos.x = WIDTH - self.rect.width
+                self.vel.x *= -1
+            if self.rect.top < 0:
+                self.pos.y = 0
+                self.vel.y *= -1
+            if self.rect.bottom > HEIGHT:
+                self.pos.y = HEIGHT - self.rect.height
+                self.vel.y *= -1
 
-# create a new platform class...
+        # Check for collisions with platforms and update bounces accordingly
+        for platform in self.platforms:
+            if self.rect.colliderect(platform.rect):
+                self.bounces += 1
+                if abs(self.rect.left - platform.rect.right) < 5:
+                    self.pos.x = platform.rect.right
+                    self.vel.x *= -1
+                if abs(self.rect.right - platform.rect.left) < 5:
+                    self.pos.x = platform.rect.left - self.rect.width
+                    self.vel.x *= -1
+                if abs(self.rect.top - platform.rect.bottom) < 5:
+                    self.pos.y = platform.rect.bottom
+                    self.vel.y *= -1
+                if abs(self.rect.bottom - platform.rect.top) < 5:
+                    self.pos.y = platform.rect.top - self.rect.height
+                    self.vel.y *= -1
+#platform class
+class Platform(pygame.sprite.Sprite):
+    def __init__(self, pos, *groups):
+        super().__init__(*groups)
+        self.image = platform_img
+        self.rect = self.image.get_rect(topleft=pos)
+#zombie class
+class Zombie(pygame.sprite.Sprite):
+    def __init__(self, pos, *groups):
+        super().__init__(*groups)
+        self.image = zombie_img
+        self.rect = self.image.get_rect(midbottom=pos)
+#gun class
+class Gun:
+    def __init__(self, pos):
+        self.pos = pos
+        self.angle = 0
+        self.image = gun_img
+        self.original_image = gun_img
 
-class Platform(Sprite):
-    def __init__(self, x, y, width, height, color, variant):
-        Sprite.__init__(self)
-        self.width = width
-        self.height = height
-        self.image = pg.Surface((self.width,self.height))
-        self.color = color
-        self.image.fill(self.color)
-        self.rect = self.image.get_rect()
-        self.rect.x = x
-        self.rect.y = y
-        self.variant = variant
+    def update(self, mouse_pos):
+        dx, dy = mouse_pos[0] - self.pos[0], self.pos[1] - mouse_pos[1]
+        r = math.sqrt(dx*dx + dy*dy)
+        self.angle = math.acos(dx/r) / math.pi * 180
+        #self.angle = math.degrees(math.acos().atan2(dy, dx))
+        self.image = pygame.transform.rotate(self.original_image, self.angle)
+        self.rect = self.image.get_rect(center=self.pos)
+
+    def draw(self, surface):
+        surface.blit(self.image, self.rect)
