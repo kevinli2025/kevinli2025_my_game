@@ -2,6 +2,7 @@ from settings import *
 import pygame
 import math
 
+#load images for sprites
 gun_img = pygame.image.load("images/gun.png")
 zombie_img = pygame.image.load("images/zombie.png")
 platform_img = pygame.image.load("images/platform.png")
@@ -12,23 +13,26 @@ class Bullet(pygame.sprite.Sprite):
         
         self.screen = screen
         self.platforms = platforms
+        #Initialize the angle of the bullet direction
         self.angle = math.radians(angle)
         self.vel = pygame.math.Vector2(BULLET_SPEED * math.cos(self.angle), -BULLET_SPEED * math.sin(self.angle))
         x = pos[0] + self.vel.x * 10
         y = pos[1] + self.vel.y * 10
         self.pos = pygame.math.Vector2((x,y))
         self.bounces = 0
+        #Bullet's appearance
         self.image = pygame.Surface((5, 5), pygame.SRCALPHA)
         self.image.fill(RED)
         self.rect = self.image.get_rect(center=(x,y))
 
     def update(self):
+        #Updates position based on velocity
         self.pos += self.vel
         self.rect.topleft = self.pos
         #if bullet bounces more than maximum, it disappears
         if self.bounces >= MAX_BOUNCES:
             self.kill()
-        #Check if the bullet is outside the screen boundaries
+        #Check if the bullet hits the screen boundaries, if so, bounce it back
         if not self.rect.colliderect(self.screen.get_rect()):
             self.bounces += 1
             if self.rect.left < 0:
@@ -44,7 +48,7 @@ class Bullet(pygame.sprite.Sprite):
                 self.pos.y = HEIGHT - self.rect.height
                 self.vel.y *= -1
 
-        # Check for collisions with platforms and update bounces accordingly
+        #Check for collisions with platforms and update bounces accordingly
         for platform in self.platforms:
             if self.rect.colliderect(platform.rect):
                 self.bounces += 1
@@ -81,10 +85,11 @@ class Gun:
         self.original_image = gun_img
 
     def update(self, mouse_pos):
+        #Calculate the angle of the gun based on mouse position
         dx, dy = mouse_pos[0] - self.pos[0], self.pos[1] - mouse_pos[1]
         r = math.sqrt(dx*dx + dy*dy)
         self.angle = math.acos(dx/r) / math.pi * 180
-        #self.angle = math.degrees(math.acos().atan2(dy, dx))
+        #Rotate the gun accordingly
         self.image = pygame.transform.rotate(self.original_image, self.angle)
         self.rect = self.image.get_rect(center=self.pos)
 
